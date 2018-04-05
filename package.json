@@ -34,7 +34,9 @@
     "toposort-class": "^1.0.1",
     "uuid": "^3.2.1",
     "validator": "^9.4.1",
-    "wkx": "^0.4.1"
+    "wkx": "^0.4.1",
+    "camelize": "^1.0.0",
+    "decamelize": "^2.0.0"
   },
   "devDependencies": {
     "@semantic-release/github": "^4.x",
