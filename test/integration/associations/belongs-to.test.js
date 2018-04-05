@@ -7,7 +7,8 @@ const chai = require('chai'),
   DataTypes = require(__dirname + '/../../../lib/data-types'),
   Sequelize = require('../../../index'),
   Promise = Sequelize.Promise,
-  current = Support.sequelize;
+  current = Support.sequelize,
+  dialect = Support.getTestDialect();
 
 describe(Support.getTestDialectTeaser('BelongsTo'), () => {
   describe('Model.associations', () => {
@@ -121,13 +122,12 @@ describe(Support.getTestDialectTeaser('BelongsTo'), () => {
 
     it('supports schemas', function() {
       const User = this.sequelize.define('UserXYZ', { username: Sequelize.STRING, gender: Sequelize.STRING }).schema('archive'),
-        Task = this.sequelize.define('TaskXYZ', { title: Sequelize.STRING, status: Sequelize.STRING }).schema('archive'),
-        self = this;
+        Task = this.sequelize.define('TaskXYZ', { title: Sequelize.STRING, status: Sequelize.STRING }).schema('archive');
 
       Task.belongsTo(User);
 
-      return self.sequelize.dropAllSchemas().then(() => {
-        return self.sequelize.createSchema('archive');
+      return this.sequelize.dropAllSchemas().then(() => {
+        return this.sequelize.createSchema('archive');
       }).then(() => {
         return User.sync({force: true });
       }).then(() => {
@@ -140,6 +140,50 @@ describe(Support.getTestDialectTeaser('BelongsTo'), () => {
       }).spread((user, task) => {
         return task.setUserXYZ(user).then(() => {
           return task.getUserXYZ();
+        });
+      }).then(user => {
+        expect(user).to.be.ok;
+        return this.sequelize.dropSchema('archive').then(() => {
+          return this.sequelize.showAllSchemas().then(schemas => {
+            if (dialect === 'postgres' || dialect === 'mssql') {
+              expect(schemas).to.be.empty;
+            }
+          });
+        });
+      });
+    });
+
+    it('supports schemas when defining custom foreign key attribute #9029', function() {
+      const User = this.sequelize.define('UserXYZ', {
+          uid: {
+            type: Sequelize.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+            allowNull: false
+          }
+        }).schema('archive')
+        , Task = this.sequelize.define('TaskXYZ', {
+          user_id: {
+            type: Sequelize.INTEGER,
+            references: { model: User, key: 'uid' }
+          }
+        }).schema('archive');
+
+      Task.belongsTo(User, { foreignKey: 'user_id'});
+
+      return this.sequelize.dropAllSchemas().then(() => {
+        return this.sequelize.createSchema('archive');
+      }).then(() => {
+        return User.sync({force: true });
+      }).then(() => {
+        return Task.sync({force: true });
+      }).then(() => {
+        return User.create({});
+      }).then(user => {
+        return Task.create({}).then(task => {
+          return task.setUserXYZ(user).then(() => {
+            return task.getUserXYZ();
+          });
         });
       }).then(user => {
         expect(user).to.be.ok;
@@ -713,7 +757,7 @@ describe(Support.getTestDialectTeaser('BelongsTo'), () => {
     it('should support a non-primary key as the association column with a field option', function() {
       const User = this.sequelize.define('User', {
           username: {
-            type:  DataTypes.STRING,
+            type: DataTypes.STRING,
             field: 'the_user_name_field'
           }
         }),
